@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+##
+## fprintf - script to create command-line fprintf functionality; the intent is for
+##           it to work exactly as it would in C, only via the command-line,  minus
+##           the need for the syntactical parentheses.
+##
+## Defining the COUNT variable will cause this script to output the total number of
+## characters displayed versus the usual output.
+##
+## Defining the DEBUG variable will cause this script to run in debug mode, showing
+## the constructed C script.
+##
+########################################################################################
+
+########################################################################################
+##
+## Declare variables
+##
+ARGC="${#}"
+OUTFILE=
+REGBIN='\<0b[01][01]*\>'
+REGOCT='\<0[0-7][0-7]*\>'
+REGDEC='\<[1-9][0-9]*\>'
+REGHEX='\<0x[0-9a-fA-F][0-9a-fA-F]*\>'
+REGSED='s/%\*/% */g'
+TMPFILE=$(mktemp -p /tmp XXXX.fprintf.c)
+
+########################################################################################
+##
+## Construct the "perfect" C program to handle our request
+##
+echo    "#!/usr/bin/env -S tcc -run"                                     >  ${TMPFILE}
+echo                                                                     >> ${TMPFILE}
+echo    "#include <stdio.h>"                                             >> ${TMPFILE}
+echo                                                                     >> ${TMPFILE}
+echo    "int  main ()"                                                   >> ${TMPFILE}
+echo    "{"                                                              >> ${TMPFILE}
+echo    "    int  length  = 0;"                                          >> ${TMPFILE}
+echo                                                                     >> ${TMPFILE}
+echo -n "    length       = fprintf ("                                   >> ${TMPFILE}
+
+########################################################################################
+##
+## Process the fprintf parameters, adding formatting as needed
+##
+for ((index=1; index<=${ARGC}; index++)); do
+
+    ####################################################################################
+    ##
+    ## First argument is the FILE pointer
+    ##
+    if [ "${index}" -eq 1 ]; then
+        if [ ! "${1}" = "stdout" ] && [ ! "${1}" = "stderr" ]; then
+            echo -n "stdout"                                             >> ${TMPFILE}
+            OUTFILE="${1}"
+        else
+            echo -n "${1}"                                               >> ${TMPFILE}
+        fi
+
+    ####################################################################################
+    ##
+    ## Second argument is the format string
+    ##
+    elif [ "${index}" -eq 2 ]; then
+        count=$(echo "${1}"     | sed 's/%%//g')
+        count=$(echo "${count}" | egrep -o '(%|%\*)' | sed "${REGSED}" | wc -w)
+        echo -n ", \"${1}\""                                             >> ${TMPFILE}
+
+    ####################################################################################
+    ##
+    ## Remaining arguments are substitutions based on the format string, check for
+    ## strings and quote them
+    ##
+    else
+        binchk=$(echo "${1}" | egrep -qio "${REGBIN}" && echo "true" || echo "false")
+        octchk=$(echo "${1}" | egrep -qio "${REGOCT}" && echo "true" || echo "false")
+        decchk=$(echo "${1}" | egrep -qio "${REGDEC}" && echo "true" || echo "false")
+        hexchk=$(echo "${1}" | egrep -qio "${REGHEX}" && echo "true" || echo "false")
+        if [ "${binchk}" = "false" ] && [ "${octchk}" = "false" ] && \
+           [ "${decchk}" = "false" ] && [ "${hexchk}" = "false" ]; then
+            echo -n ", \"${1}\""                                         >> ${TMPFILE}
+        else
+            echo -n ", ${1}"                                             >> ${TMPFILE}
+        fi
+    fi
+
+    ####################################################################################
+    ##
+    ## Cycle the arguments
+    ##
+    shift 1
+done
+
+########################################################################################
+##
+## Complete the program
+##
+echo    ");"                                                             >> ${TMPFILE}
+echo                                                                     >> ${TMPFILE}
+echo    "    return (length);"                                           >> ${TMPFILE}
+echo    "}"                                                              >> ${TMPFILE}
+
+########################################################################################
+##
+## Do a quick parameter count check against the identified number of substitutions
+##
+let remaining=ARGC-2
+if [ "${count}" -gt "${remaining}" ]; then
+    echo "ERROR: not enough substitution parameters provided!"
+    exit 1
+fi
+
+########################################################################################
+##
+## If DEBUG mode is set, display (with line numbers) the constructed C script
+##
+[ ! -z "${DEBUG}" ] && cat -n ${TMPFILE}
+
+########################################################################################
+##
+## Make the C script executable
+##
+chmod 0700 ${TMPFILE}
+
+########################################################################################
+##
+## Run the perfect C script (normal operations)
+##
+if [ -z "${COUNT}" ]; then
+    ${TMPFILE}
+
+########################################################################################
+##
+## Run the perfect C script (character count)
+##
+else
+    ${TMPFILE} 1> /dev/null 2> /dev/null
+    echo "${?}"
+fi
+
+########################################################################################
+##
+## Remove the TMPFILE
+##
+rm -f ${TMPFILE}
+
+exit 0

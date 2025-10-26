@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+### 
+### pad - a script to pad spaces to the right side of a text file for alignment
+###       applications, such as for use with the paste tool.
+### 
+### 
+########################################################################################
+
+########################################################################################
+##
+## Declare variables
+##
+INPUT_FILES="${*}"
+
+########################################################################################
+##
+## Determine length of the longest file, that'll be the MAXLEN default
+##
+max_len=0
+for file in ${INPUT_FILES}; do
+    len=$(cat ${file} | wc -l)
+    if [ "${len}" -gt "${max_len}" ]; then
+        max_len="${len}"
+    fi
+done
+
+########################################################################################
+##
+## Set other variables, potentially overridden by command-line variables
+##
+[ -z "${WIDTH}"  ] && WIDTH=39
+[ -z "${MAXLEN}" ] && MAXLEN="${max_len}"
+
+########################################################################################
+##
+## For each input file, pad it out to WIDTH, MAXLEN lines long
+##
+for input_file in ${INPUT_FILES}; do
+
+    ####################################################################################
+    ##
+    ## For the existing content, pad it out to WIDTH
+    ##
+    output_file="${input_file}.pad"
+    length=$(cat ${input_file} | wc -l)
+    echo -n                                                          >  ${output_file}
+    for ((line=1; line<=${length}; line++)); do
+        len=$(cat ${input_file} | head -n ${line} | tail -1 | wc -L)
+        head -n ${line} ${input_file} | tail -1 | tr -d '\n'         >> ${output_file}
+        for ((pad=${len}; pad<${WIDTH}; pad++)); do
+            echo -n " "                                              >> ${output_file}
+        done
+        echo                                                         >> ${output_file}
+    done
+
+    ####################################################################################
+    ##
+    ## Should the file fall short of MAXLEN, append extra padded lines
+    ##
+    if [ ${length} -lt ${MAXLEN} ]; then
+        for ((line=${length}; line<${MAXLEN}; line++)); do
+            for ((pad=0; pad<${WIDTH}; pad++)); do
+                echo -n " "                                          >> ${output_file}
+            done
+            echo                                                     >> ${output_file}
+        done
+    fi
+done
+
+exit 0
