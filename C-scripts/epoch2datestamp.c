@@ -1,8 +1,23 @@
 #!/usr/bin/env -S tcc -run
+//
+// epoch2datestamp: a C-script to take some number of seconds since the epoch and
+//                  display its datestamp
+//
+////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// Pre-processor directives
+//
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <time.h>
 
+////////////////////////////////////////////////////////////////////////////////////////
+//
+// node structure for use as a linked list
+//
 struct node
 {
     time_t       now;
@@ -10,7 +25,7 @@ struct node
 };
 typedef struct node Node;
 
-int main (int argc, char **argv)
+int32_t  main (int32_t  argc, int8_t **argv)
 {
     //////////////////////////////////////////////////////////////////////////
     //
@@ -19,7 +34,7 @@ int main (int argc, char **argv)
     Node      *start         = NULL;
     Node      *tmp           = NULL;
     char      *datestamp     = NULL;
-    int        index         = 0;
+    int32_t    index         = 0;
     struct tm *mytime        = NULL;
 
     //////////////////////////////////////////////////////////////////////////
@@ -116,7 +131,7 @@ int main (int argc, char **argv)
         //////////////////////////////////////////////////////////////////////
         //
         // Needed? Construct input one byte at a time, utilize datestamp,
-		// as it currently is not in use.
+        // as it currently is not in use.
         //
         for (index = 0; index < 16; index++)
         {
@@ -124,17 +139,17 @@ int main (int argc, char **argv)
             if ((*(datestamp+index) == ' ')   ||
                 (*(datestamp+index) == '\n'))
             {
-				*(datestamp+index)   = '\0';
+                *(datestamp+index)   = '\0';
                 break;
             }
         }
-		tmp -> now                   = (time_t) atoi (datestamp);
+        tmp -> now                   = (time_t) atoi (datestamp);
     }
 
     //////////////////////////////////////////////////////////////////////////
     //
-    // Work through our amassed list to display final datestamp values, if
-    // there are any to work through
+    // If there are no collected requests to process, do it for the current
+    // time
     //
     tmp                      = start;
     if (tmp                 == NULL)
@@ -144,6 +159,11 @@ int main (int argc, char **argv)
         fprintf  (stdout,        "%s\n",          datestamp);
     }
 
+    //////////////////////////////////////////////////////////////////////////
+    //
+    // Work through our amassed list to display final datestamp values, if
+    // there are any to work through
+    //
     while (tmp              != NULL)
     {
         mytime               = localtime (&(tmp -> now)); 
